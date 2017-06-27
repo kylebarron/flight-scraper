@@ -86,42 +86,16 @@ class scrape_flights(object):
             if holiday_date.weekday() >= 5:
                 print("You supplied a weekend as a holiday")
             else if holiday_date.weekday() == 0:
-                dep_date_earliest = holiday_date - datetime.timedelta(days = 3)
-            if not max_trip_duration:
-            if not min_trip_duration:
+                self.dep_date_earliest = self.holiday_date - datetime.timedelta(days = 3)
+            if not self.max_trip_duration:
+            if not self.min_trip_duration:
 
-x = None
-y = None
-if not x and not y:
-    print("hi")
-
-
-print(x)
-if x is not None:
-    print("say hi")
-else:
-    print("it's not not None")
 
 
 dep = parse("August 24, 2017").date()
 ret = parse("August 29, 2017").date()
 
 dep
-
-date.today()
-import time
-time.time()
-parse("august 22, 2017")
-
-
-saturday = parse("Jun 24, 2017").date()
-saturday
-saturday.weekday()
-timedel
-saturday - 3
-
-
-
 
 
 airports = feather.read_dataframe("../data/airports.feather")
@@ -220,17 +194,6 @@ dests = {
     "Anchorage": "ANC"
 }
 
-departure_dates = [
-    # Three day weekends plus one or two days off work
-    # Labor day
-    "2017-08-31", "2017-09-01", "2017-09-02",
-    #
-]
-
-return_dates = [
-    # Labor day
-
-]
 
 driver = webdriver.PhantomJS("/opt/phantomjs/bin/phantomjs")
 driver = webdriver.Chrome("../bin/chromedriver")
@@ -265,54 +228,3 @@ for flight in soup.find_all("a", class_=re.compile("OMOBOQD-d-X")):
 
 dataframe = pd.DataFrame.from_dict(flight_data)
 dataframe
-
-
-5.__class__
-x = 5
-x.__class__
-type(x)
-type(flight)
-help(type)
-dir(flight)
-dir(x)
-
-x.__hash__
-
-flight = soup.find_all("a", class_=re.compile("OMOBOQD-d-X"))[0]
-flight.__class__
-
-
-
-
-
-
-
-
-soup.__class__
-
-
-
-
-def scrape_flights:
-    # INPUTS: Dictionaries for origins
-    # Download flight data and put into pandas dataframe
-
-https://www.kayak.com/flights/BOS-SEA/2017-07-13/2017-07-19
-
-
-def parse_origins:
-
-def parse_dests:
-
-def parse_departure_dates:
-
-def parse_return_dates:
-
-test_dict = {"hi": 1,
-             "hello": 2}
-
-for i in test_dict.keys():
-    print(i)
-
-
-%whos
