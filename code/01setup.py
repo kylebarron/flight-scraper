@@ -9,6 +9,7 @@ import os
 import sys
 import platform
 import zipfile
+import stat
 
 # Get airports data
 def get_airport_data():
@@ -48,6 +49,9 @@ def get_chromedriver():
         chromedriver_zip.extract("chromedriver", "../bin/")
     chromedriver_zip.close()
     os.remove("../bin/chromedriver.zip")
+    # Make executable for user
+    st = os.stat("../bin/chromedriver")
+    os.chmod("../bin/chromedriver", st.st_mode | stat.S_IXUSR)
 
 def get_phantomjs():
     if not os.path.exists("../bin"):
