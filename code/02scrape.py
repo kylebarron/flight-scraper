@@ -6,8 +6,123 @@ import feather
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from datetime import datetime
+import datetime
+import calendar
 import re
+from dateutil.parser import parse
+
+
+class scrape_flights(object):
+    def __init__(self, origins = None, dests = None, roundtrip = True,
+                 # Either specify dates
+                 dep_date_earliest = None, return_date_latest = None, # dep_date_latest = None, return_date_earliest = None, Simplify my computations right now
+                 min_trip_duration = None, max_trip_duration = None,
+                 # Or specify a holiday date and max_days_off_work
+                 holiday_date = None, max_days_off_work = None,
+                 # Other options
+                 max_stops = 2, max_price = None, airline_included = None, airline_excluded = None,
+                 # Flight times
+                 time_outbound_dep_begin = None, time_outbound_dep_end = None, time_outbound_arr_begin = None, time_outbound_arr_end = None,
+                 time_inbound_dep_begin = None, time_inbound_dep_end = None, time_inbound_arr_begin = None, time_inbound_arr_end = None,
+                 # Flight durations
+                 max_flight_duration = None, max_flight_duration_outbound = None, max_flight_duration_inbound = None,
+                 allow_separate_tickets = True, connect_airport_included = None, connect_airport_excluded = None,
+                 # Scrape options
+                 scrape_wait_time = 5, scrape_engine = "chromedriver"):
+        if origins is None:
+            origins = {
+                "Boston": "BOS",
+                "Providence": "PVD"
+            }
+        if dests is None:
+            dests = {
+                "Seattle, WA": "SEA",
+                "Portland, OR": "PDX"
+            }
+        self.origins = origins
+        self.dests = dests
+        self.roundtrip = roundtrip
+        self.dep_date_earliest = dep_date_earliest
+        self.return_date_latest = return_date_latest
+        self.min_trip_duration = min_trip_duration
+        self.max_trip_duration = max_trip_duration
+        self.holiday_date = holiday_date
+        self.max_days_off_work = max_days_off_work
+        self.max_stops = max_stops
+        self.max_price = max_price
+        self.airline_included = airline_included
+        self.airline_excluded = airline_excluded
+        self.time_outbound_dep_begin = time_outbound_dep_begin
+        self.time_outbound_dep_end = time_outbound_dep_end
+        self.time_outbound_arr_begin = time_outbound_arr_begin
+        self.time_outbound_arr_end = time_outbound_arr_end
+        self.time_inbound_dep_begin = time_inbound_dep_begin
+        self.time_inbound_dep_end = time_inbound_dep_end
+        self.time_inbound_arr_begin = time_inbound_arr_begin
+        self.time_inbound_arr_end = time_inbound_arr_end
+        self.max_flight_duration = max_flight_duration
+        self.max_flight_duration_outbound = max_flight_duration_outbound
+        self.max_flight_duration_inbound = max_flight_duration_inbound
+        self.allow_separate_tickets = allow_separate_tickets
+        self.connect_airport_included = connect_airport_included
+        self.connect_airport_excluded = connect_airport_excluded
+        self.scrape_wait_time = scrape_wait_time
+        self.scrape_engine = scrape_engine
+
+    def resolve_dates(self):
+        # Given inputs, create a list of possible departure/return combinations
+        # I.e. [[Mon, Thu], [Mon, Wed]] (but with actual dates)
+        # If specified dates are included, then use those
+        if not self.dep_date_earliest and not self.return_date_latest:
+            self.dep_date_earliest = parse(dep_date_earliest).date()
+            self.return_date_latest = parse(return_date_latest).date()
+            if not self.max_trip_duration:
+                d
+            if not self.min_trip_duration:
+                d
+
+        if not self.holiday_date and not self.max_days_off_work:
+            self.holiday_date = parse(self.holiday_date).date()
+            if holiday_date.weekday() >= 5:
+                print("You supplied a weekend as a holiday")
+            else if holiday_date.weekday() == 0:
+                dep_date_earliest = holiday_date - datetime.timedelta(days = 3)
+            if not max_trip_duration:
+            if not min_trip_duration:
+
+x = None
+y = None
+if not x and not y:
+    print("hi")
+
+
+print(x)
+if x is not None:
+    print("say hi")
+else:
+    print("it's not not None")
+
+
+dep = parse("August 24, 2017").date()
+ret = parse("August 29, 2017").date()
+
+dep
+
+date.today()
+import time
+time.time()
+parse("august 22, 2017")
+
+
+saturday = parse("Jun 24, 2017").date()
+saturday
+saturday.weekday()
+timedel
+saturday - 3
+
+
+
+
 
 airports = feather.read_dataframe("../data/airports.feather")
 
@@ -118,8 +233,8 @@ return_dates = [
 ]
 
 driver = webdriver.PhantomJS("/opt/phantomjs/bin/phantomjs")
-# driver = webdriver.Chrome("../bin/chromedriver")
-scrape_time = str(datetime.now())[:-7]
+driver = webdriver.Chrome("../bin/chromedriver")
+scrape_time = str(datetime.datetime.now())[:-7]
 
 driver.get("https://www.google.com/flights/#search;f=SEA;t=BOS;d=2017-09-13;tt=o")
 soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -152,6 +267,19 @@ dataframe = pd.DataFrame.from_dict(flight_data)
 dataframe
 
 
+5.__class__
+x = 5
+x.__class__
+type(x)
+type(flight)
+help(type)
+dir(flight)
+dir(x)
+
+x.__hash__
+
+flight = soup.find_all("a", class_=re.compile("OMOBOQD-d-X"))[0]
+flight.__class__
 
 
 
@@ -160,13 +288,7 @@ dataframe
 
 
 
-
-
-
-
-
-
-
+soup.__class__
 
 
 
