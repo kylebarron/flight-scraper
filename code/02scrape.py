@@ -15,13 +15,13 @@ import itertools
 
 class scrape_flights(object):
     def __init__(self,
-                 origin = None,
+                 origin      = None,
                  destination = None,
-                 roundtrip = True):
+                 roundtrip   = True):
         self.origins   = origin
         self.dests     = destination
         self.roundtrip = roundtrip
-        self.data = None
+        self.data      = None
 
         origin_list = []
         if type(self.origins) is dict:
@@ -59,17 +59,18 @@ class scrape_flights(object):
                   return_datetime_latest = None,
                   min_trip_duration      = None,
                   max_trip_duration      = None):
-        dep_datetime_earliest  = "July 20 10:00 am"
-        return_datetime_latest = "July 25 5:00 pm"
-        min_trip_duration      = 1
-        max_trip_duration      = 4
+        # For testing:
+        # dep_datetime_earliest  = "July 20 10:00 am"
+        # return_datetime_latest = "July 25 5:00 pm"
+        # min_trip_duration      = 1
+        # max_trip_duration      = 4
         """
         Easiest implementation : parse a beginning and end datetime and a min or max trip duration
         dep_datetime_earliest  : String
         return_datetime_latest : String
         min_trip_duration      : Shortest trip length in days, integer
         max_trip_duration      : Longest trip length in days, integer
-        OUTPUT: List of lists; each inner list has length two, where each value is a datetime
+        OUTPUT: Pandas dataframe
         """
         dep_datetime_earliest  = parse(dep_datetime_earliest)
         return_datetime_latest = parse(return_datetime_latest)
@@ -104,7 +105,7 @@ class scrape_flights(object):
 
         # Now add on dep_time and ret_time if first or last day
         date_pairs.loc[date_pairs.dep_date == first_day, "dep_time"] = first_day_time
-        date_pairs.loc[date_pairs.ret_date == last_day, "ret_time"] = last_day_time
+        date_pairs.loc[date_pairs.ret_date == last_day, "ret_time"]  = last_day_time
         # date_pairs["duration"] = date_pairs.ret_date - date_pairs.dep_date
         date_pairs["merge"] = 1
 
