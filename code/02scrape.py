@@ -16,13 +16,16 @@ class scrape_flights(object):
     def __init__(self,
                  origins = None,
                  dests = None,
+                 
                  roundtrip = True,
                  # Either specify dates
+                 # ONE FUNCTION
                  dep_date_earliest = None,
                  return_date_latest = None, # dep_date_latest = None, return_date_earliest = None, Simplify my computations right now
                  min_trip_duration = None,
                  max_trip_duration = None,
                  # Or specify a holiday date and max_days_off_work
+                 # ANOTHER FUNCTION TO RESOLVE DATES
                  holiday_date = None,
                  max_days_off_work = None,
                  # Other options
