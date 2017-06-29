@@ -10,14 +10,117 @@ import datetime
 import calendar
 import re
 from dateutil.parser import parse
+import itertools
 
 
 class scrape_flights(object):
     def __init__(self,
-                 origins = None,
-                 dests = None,
-                 
-                 roundtrip = True,
+                 origin = None,
+                 destination = None,
+                 roundtrip = True):
+        self.origins   = origin
+        self.dests     = destination
+        self.roundtrip = roundtrip
+        self.data = None
+
+        origin_list = []
+        if type(self.origins) is dict:
+            for value in self.origins.values():
+                origin_list.append(value)
+        elif type(self.origins) is str:
+            origin_list.append(self.origins)
+        elif type(self.origins) is list:
+            origin_list = self.origins
+        else:
+            raise Exception("Please supply a dictionary, list, or string as the origin")
+        self.origins = origin_list
+
+        dest_list = []
+        if type(self.dests) is dict:
+            for value in self.dests.values():
+                dest_list.append(value)
+        elif type(self.dests) is str:
+            dest_list.append(self.dests)
+        elif type(self.dests) is list:
+            dest_list = self.dests
+        else:
+            raise Exception("Please supply a dictionary, list, or string as the destination")
+        self.dests = dest_list
+
+        cart_product = []
+        for i in itertools.product(self.origins, self.dests):
+            cart_product.append(i)
+        self.data = pd.DataFrame(cart_product, columns = ["Origin", "Destination"])
+        self.data["merge"] = 1
+
+
+    def datetimes(self,
+                  dep_datetime_earliest  = None,
+                  return_datetime_latest = None,
+                  min_trip_duration      = None,
+                  max_trip_duration      = None):
+        dep_datetime_earliest  = "July 20 10:00 am"
+        return_datetime_latest = "July 25 5:00 pm"
+        min_trip_duration      = 1
+        max_trip_duration      = 4
+        """
+        Easiest implementation : parse a beginning and end datetime and a min or max trip duration
+        dep_datetime_earliest  : String
+        return_datetime_latest : String
+        min_trip_duration      : Shortest trip length in days, integer
+        max_trip_duration      : Longest trip length in days, integer
+        OUTPUT: List of lists; each inner list has length two, where each value is a datetime
+        """
+        dep_datetime_earliest  = parse(dep_datetime_earliest)
+        return_datetime_latest = parse(return_datetime_latest)
+        diff                   = return_datetime_latest - dep_datetime_earliest
+        first_day              = dep_datetime_earliest.date()
+        last_day               = return_datetime_latest.date()
+        first_day_time         = dep_datetime_earliest.time()
+        last_day_time          = return_datetime_latest.time()
+
+        # print("Earliest departure:", str(dep_datetime_earliest))
+        # print("Latest return:"     , str(return_datetime_latest))
+        # print(" ")
+
+        if diff.total_seconds() < 0:
+            raise Exception("Return datetime cannot be before departure datetime")
+
+        if diff.days < min_trip_duration:
+            raise Exception("Minimum trip duration must be at least as long as the difference in days between earliest start and latest return")
+
+        # First get all possible combinations of departure and return days,
+        #  and then find the subset that matches min and max trip duration
+        dep_list = pd.date_range(dep, periods = diff.days).date.tolist()
+        ret_list = pd.date_range(ret - datetime.timedelta(days = diff.days - 1), periods = diff.days).date.tolist()
+
+        cart_product = []
+        for i in itertools.product(dep_list, ret_list):
+            cart_product.append(i)
+
+        date_pairs = pd.DataFrame(cart_product, columns=["dep_date", "ret_date"])
+        date_pairs = date_pairs[date_pairs.ret_date - date_pairs.dep_date <= datetime.timedelta(days = max_trip_duration)]
+        date_pairs = date_pairs[date_pairs.ret_date - date_pairs.dep_date >= datetime.timedelta(days = min_trip_duration)]
+
+        # Now add on dep_time and ret_time if first or last day
+        date_pairs.loc[date_pairs.dep_date == first_day, "dep_time"] = first_day_time
+        date_pairs.loc[date_pairs.ret_date == last_day, "ret_time"] = last_day_time
+        # date_pairs["duration"] = date_pairs.ret_date - date_pairs.dep_date
+        date_pairs["merge"] = 1
+
+        self.data = pd.merge(self.data, date_pairs, on = "merge")
+
+    # def
+
+
+
+test = scrape_flights(origin = "BOS", destination = ["LAX", "SEA"])
+test.datetimes("July 20 10:00 am", "July 25 5:00 pm")
+
+test.data
+
+
+x
                  # Either specify dates
                  # ONE FUNCTION
                  dep_date_earliest = None,
@@ -62,9 +165,6 @@ class scrape_flights(object):
                 "Seattle, WA": "SEA",
                 "Portland, OR": "PDX"
             }
-        self.origins                      = origins
-        self.dests                        = dests
-        self.roundtrip                    = roundtrip
         self.dep_date_earliest            = dep_date_earliest
         self.return_date_latest           = return_date_latest
         self.min_trip_duration            = min_trip_duration
@@ -108,7 +208,7 @@ class scrape_flights(object):
             self.holiday_date = parse(self.holiday_date).date()
             if self.holiday_date.weekday() >= 5:
                 print("You supplied a weekend as a holiday")
-            else if self.holiday_date.weekday() == 0:
+            elif self.holiday_date.weekday() == 0:
                 self.dep_date_earliest = self.holiday_date - datetime.timedelta(days = 3)
             if not self.max_trip_duration:
             if not self.min_trip_duration:
