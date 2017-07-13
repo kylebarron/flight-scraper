@@ -11,6 +11,8 @@ import calendar
 import re
 from dateutil.parser import parse
 import itertools
+import time
+from random import randint
 
 
 class scrape_flights(object):
@@ -33,7 +35,6 @@ class scrape_flights(object):
             origin_list = self.origins
         else:
             raise Exception("Please supply a dictionary, list, or string as the origin")
-        self.origins = origin_list
 
         dest_list = []
         if type(self.dests) is dict:
@@ -45,12 +46,14 @@ class scrape_flights(object):
             dest_list = self.dests
         else:
             raise Exception("Please supply a dictionary, list, or string as the destination")
-        self.dests = dest_list
+
+        self.origins = [x.upper() for x in origin_list]
+        self.dests   = [x.upper() for x in dest_list]
 
         cart_product = []
         for i in itertools.product(self.origins, self.dests):
             cart_product.append(i)
-        self.data = pd.DataFrame(cart_product, columns = ["Origin", "Destination"])
+        self.data = pd.DataFrame(cart_product, columns = ["origin", "destination"])
         self.data["merge"] = 1
 
 
@@ -59,6 +62,7 @@ class scrape_flights(object):
                   return_datetime_latest = None,
                   min_trip_duration      = None,
                   max_trip_duration      = None):
+        # Add Dates and Times to self.data!
         # For testing:
         # dep_datetime_earliest  = "July 20 10:00 am"
         # return_datetime_latest = "July 25 5:00 pm"
@@ -87,13 +91,19 @@ class scrape_flights(object):
         if diff.total_seconds() < 0:
             raise Exception("Return datetime cannot be before departure datetime")
 
+        if min_trip_duration is None:
+            min_trip_duration = 0
+
+        if max_trip_duration is None or max_trip_duration > diff.days:
+            max_trip_duration = diff.days
+
         if diff.days < min_trip_duration:
             raise Exception("Minimum trip duration must be at least as long as the difference in days between earliest start and latest return")
 
         # First get all possible combinations of departure and return days,
         #  and then find the subset that matches min and max trip duration
-        dep_list = pd.date_range(dep, periods = diff.days).date.tolist()
-        ret_list = pd.date_range(ret - datetime.timedelta(days = diff.days - 1), periods = diff.days).date.tolist()
+        dep_list = pd.date_range(first_day, periods = diff.days).date.tolist()
+        ret_list = pd.date_range(last_day - datetime.timedelta(days = diff.days - 1), periods = diff.days).date.tolist()
 
         cart_product = []
         for i in itertools.product(dep_list, ret_list):
@@ -111,244 +121,162 @@ class scrape_flights(object):
 
         self.data = pd.merge(self.data, date_pairs, on = "merge")
 
-    # def
+    # def holiday_dates(self,
+    #                   holiday_date = None,
+    #                   max_days_off_work = None,
+    #                   min_trip_duration = None,
+    #                   max_trip_duration = None):
+    #     # if self.holiday_date.weekday() >= 5:
+    #     #     print("You supplied a weekend as a holiday")
+    #
+    #
+    # def flight_duration(self,
+    #                     max_flight_duration = None,
+    #                     max_flight_duration_outbound = None,
+    #                     max_flight_duration_inbound = None):
+    #
+    # def other_options(self,
+    #                   max_stops = None,
+    #                   max_price = None,
+    #                   airline_included = None,
+    #                   airline_excluded = None,
+    #                   allow_separate_tickets = True,
+    #                   connect_airport_included = None,
+    #                   connect_airport_excluded = None):
+    #
+    # def specify_times(self,
+    #                   time_outbound_dep_begin = None,
+    #                   time_outbound_dep_end = None,
+    #                   time_outbound_arr_begin = None,
+    #                   time_outbound_arr_end = None,
+    #                   time_inbound_dep_begin = None,
+    #                   time_inbound_dep_end = None,
+    #                   time_inbound_arr_begin = None,
+    #                   time_inbound_arr_end = None):
+    #
+    def make_url(self):
+
+        self.data["url_dep"] = "https://www.google.com/flights/#search"
+        self.data["url_dep"] = self.data["url_dep"] + ";f=" + self.data["origin"]
+        self.data["url_dep"] = self.data["url_dep"] + ";t=" + self.data["destination"]
+        self.data["url_dep"] = self.data["url_dep"] + ";d=" + self.data["dep_date"].apply(lambda x: x.strftime("%Y-%m-%d"))
+        self.data["url_dep"] = self.data["url_dep"] + ";tt=o;eo=e"
+
+
+        self.data["url_ret"] = "https://www.google.com/flights/#search"
+        self.data["url_ret"] = self.data["url_ret"] + ";f=" + self.data["destination"]
+        self.data["url_ret"] = self.data["url_ret"] + ";t=" + self.data["origin"]
+        self.data["url_ret"] = self.data["url_ret"] + ";d=" + self.data["ret_date"].apply(lambda x: x.strftime("%Y-%m-%d"))
+        self.data["url_ret"] = self.data["url_ret"] + ";tt=o;eo=e"
+
+    def scrape(self,
+               scrape_wait_time = 5,
+               scrape_engine = "chromedriver"):
+
+        if scrape_engine == "chromedriver":
+            driver = webdriver.Chrome("../bin/chromedriver")
+        elif scrape_engine == "phantomjs":
+            driver = webdriver.PhantomJS("/opt/phantomjs/bin/phantomjs")
+        else:
+            raise Exception("You must use Chromedriver or PhantomJS")
+
+        flights_list = []
+        scrape_time = str(datetime.datetime.now())[:-7]
+
+        for i in range(len(self.data)):
+            time.sleep(randint(3, 7))
+            driver.get(self.data["url_dep"][i])
+            soup_dep = BeautifulSoup(driver.page_source, "lxml")
+            time.sleep(randint(3, 7))
+            driver.get(self.data["url_ret"][i])
+            soup_ret = BeautifulSoup(driver.page_source, "lxml")
+
+            # flights_list = []
+            # for flight in soup_dep.find_all("a", class_=re.compile("OMOBOQD-d-X")):
+            for flight in soup_dep.find_all("a", elm="il"):
+                dict = {
+                    "dep_href": flight.get("href"),
+                    "dep_price": flight.find(class_= "OMOBOQD-d-Ab").get_text(),
+                    "dep_oneway": flight.find(class_= "OMOBOQD-d-Cb").get_text(),
+                    "dep_airline_icon": flight.find(class_= "OMOBOQD-d-i").get("src"),
+                    "dep_departure": flight.find(class_="OMOBOQD-d-Zb").span.get("tooltip"),
+                    "dep_arrival": flight.find(class_="OMOBOQD-d-Zb").span.find_next_sibling("span").get("tooltip"),
+                    "dep_airline_text": flight.find(class_="OMOBOQD-d-j").span.get_text(),
+                    "dep_duration": flight.find(class_="OMOBOQD-d-E").get_text(),
+                    "dep_number_of_stops": flight.find(class_="OMOBOQD-d-Qb").get_text(),
+                    "scrape_time": scrape_time,
+                    "id": i
+                }
+                if flight.find(class_="OMOBOQD-d-Qb").get_text().lower() != "nonstop":
+                    dict["dep_layover_info"] = flight.find(class_="OMOBOQD-d-Z").get_text()
+                try:
+                    dict["dep_wifi"] = flight.find(class_= "OMOBOQD-d-jc").get("tooltip"),
+                except AttributeError:
+                    pass
+                flights_list.append(dict)
+
+            # for flight in soup_ret.find_all("a", class_=re.compile("OMOBOQD-d-X")):
+            for flight in soup_ret.find_all("a", elm="il"):
+                dict = {
+                    "ret_href": flight.get("href"),
+                    "ret_price": flight.find(class_= "OMOBOQD-d-Ab").get_text(),
+                    "ret_oneway": flight.find(class_= "OMOBOQD-d-Cb").get_text(),
+                    "ret_airline_icon": flight.find(class_= "OMOBOQD-d-i").get("src"),
+                    "ret_departure": flight.find(class_="OMOBOQD-d-Zb").span.get("tooltip"),
+                    "ret_arrival": flight.find(class_="OMOBOQD-d-Zb").span.find_next_sibling("span").get("tooltip"),
+                    "ret_airline_text": flight.find(class_="OMOBOQD-d-j").span.get_text(),
+                    "ret_duration": flight.find(class_="OMOBOQD-d-E").get_text(),
+                    "ret_number_of_stops": flight.find(class_="OMOBOQD-d-Qb").get_text(),
+                    "scrape_time": scrape_time,
+                    "id": i
+                }
+                if flight.find(class_="OMOBOQD-d-Qb").get_text().lower() != "nonstop":
+                    dict["ret_layover_info"] = flight.find(class_="OMOBOQD-d-Z").get_text()
+                try:
+                    dict["ret_wifi"] = flight.find(class_= "OMOBOQD-d-jc").get("tooltip"),
+                except AttributeError:
+                    pass
+                flights_list.append(dict)
+
+            #
+            # temp_df = pd.DataFrame(flights_list)
+            # flights_df.append(temp_df)
+
+        flights_df = pd.DataFrame(flights_list)
+        return flights_df
 
 
 
-test = scrape_flights(origin = "BOS", destination = ["LAX", "SEA"])
-test.datetimes("July 20 10:00 am", "July 25 5:00 pm")
+
+test = scrape_flights(origin = "bos", destination = ["LAX", "SEA"])
+test.datetimes("July 20 10:00 am", "July 22 5:00 pm")
+test.make_url()
+flights = test.scrape()
 
 test.data
 
 
-x
-                 # Either specify dates
-                 # ONE FUNCTION
-                 dep_date_earliest = None,
-                 return_date_latest = None, # dep_date_latest = None, return_date_earliest = None, Simplify my computations right now
-                 min_trip_duration = None,
-                 max_trip_duration = None,
-                 # Or specify a holiday date and max_days_off_work
-                 # ANOTHER FUNCTION TO RESOLVE DATES
-                 holiday_date = None,
-                 max_days_off_work = None,
-                 # Other options
-                 max_stops = 2,
-                 max_price = None,
-                 airline_included = None,
-                 airline_excluded = None,
-                 # Flight times
-                 time_outbound_dep_begin = None,
-                 time_outbound_dep_end = None,
-                 time_outbound_arr_begin = None,
-                 time_outbound_arr_end = None,
-                 time_inbound_dep_begin = None,
-                 time_inbound_dep_end = None,
-                 time_inbound_arr_begin = None,
-                 time_inbound_arr_end = None,
-                 # Flight durations
-                 max_flight_duration = None,
-                 max_flight_duration_outbound = None,
-                 max_flight_duration_inbound = None,
-                 allow_separate_tickets = True,
-                 connect_airport_included = None,
-                 connect_airport_excluded = None,
-                 # Scrape options
-                 scrape_wait_time = 5,
-                 scrape_engine = "chromedriver"):
-        if origins is None:
-            origins = {
-                "Boston": "BOS",
-                "Providence": "PVD"
-            }
-        if dests is None:
-            dests = {
-                "Seattle, WA": "SEA",
-                "Portland, OR": "PDX"
-            }
-        self.dep_date_earliest            = dep_date_earliest
-        self.return_date_latest           = return_date_latest
-        self.min_trip_duration            = min_trip_duration
-        self.max_trip_duration            = max_trip_duration
-        self.holiday_date                 = holiday_date
-        self.max_days_off_work            = max_days_off_work
-        self.max_stops                    = max_stops
-        self.max_price                    = max_price
-        self.airline_included             = airline_included
-        self.airline_excluded             = airline_excluded
-        self.time_outbound_dep_begin      = time_outbound_dep_begin
-        self.time_outbound_dep_end        = time_outbound_dep_end
-        self.time_outbound_arr_begin      = time_outbound_arr_begin
-        self.time_outbound_arr_end        = time_outbound_arr_end
-        self.time_inbound_dep_begin       = time_inbound_dep_begin
-        self.time_inbound_dep_end         = time_inbound_dep_end
-        self.time_inbound_arr_begin       = time_inbound_arr_begin
-        self.time_inbound_arr_end         = time_inbound_arr_end
-        self.max_flight_duration          = max_flight_duration
-        self.max_flight_duration_outbound = max_flight_duration_outbound
-        self.max_flight_duration_inbound  = max_flight_duration_inbound
-        self.allow_separate_tickets       = allow_separate_tickets
-        self.connect_airport_included     = connect_airport_included
-        self.connect_airport_excluded     = connect_airport_excluded
-        self.scrape_wait_time             = scrape_wait_time
-        self.scrape_engine                = scrape_engine
-
-    def resolve_dates(self):
-        # Given inputs, create a list of possible departure/return combinations
-        # I.e. [[Mon, Thu], [Mon, Wed]] (but with actual dates)
-        # If specified dates are included, then use those
-        if not self.dep_date_earliest and not self.return_date_latest:
-            self.dep_date_earliest = parse(self.dep_date_earliest).date()
-            self.return_date_latest = parse(self.return_date_latest).date()
-            if not self.max_trip_duration:
-                d
-            if not self.min_trip_duration:
-                d
-
-        if not self.holiday_date and not self.max_days_off_work:
-            self.holiday_date = parse(self.holiday_date).date()
-            if self.holiday_date.weekday() >= 5:
-                print("You supplied a weekend as a holiday")
-            elif self.holiday_date.weekday() == 0:
-                self.dep_date_earliest = self.holiday_date - datetime.timedelta(days = 3)
-            if not self.max_trip_duration:
-            if not self.min_trip_duration:
-
-
-
-dep = parse("August 24, 2017").date()
-ret = parse("August 29, 2017").date()
-
-dep
-
-
 airports = feather.read_dataframe("../data/airports.feather")
+flights
 
-origins = {
-    "Boston": "BOS",
-    "Providence": "PVD"
-}
+test.data["url_ret"][0]
 
-dests = {
-    # Washington:
-    "Seattle, WA": "SEA",
-    "Spokane, WA": "GEG",
-    "Pullman": "PUW",
-    "Bellingham": "BLI",
-    "Wenatchee": "EAT",
-    "Yakima": "YKM",
-    "Pasco": "PSC",
-    "Walla Walla": "ALW",
-    # Oregon:
-    "Portland, OR": "PDX",
-    "Redmond, OR": "RDM",
-    "Eugene, OR": "EUG",
-    "Medford, OR": "MFR",
-    # California:
-    "Arcata": "ACV",
-    "Redding": "RDD",
-    "Santa Rosa": "STS",
-    "Sacramento": "SMF",
-    "San Francisco": "SFO",
-    "Oakland": "OAK",
-    "San Jose": "SJC",
-    "Monterey": "MRY",
-    "Fresno": "FAT",
-    "San Luis Obispo": "SBP",
-    "Santa Barbara": "SBA",
-    "Los Angeles": "LAX",
-    "Burbank": "BUR",
-    "Ontario, CA": "ONT",
-    "Long Beach": "LGB",
-    "Orange County": "SNA",
-    "Palm Springs": "PSP",
-    "Yuma, CA": "YUM",
-    # Arizona
-    "Tucson": "TUS",
-    "Phoenix": "PHX",
-    "Prescott": "PRC",
-    "Flagstaff": "FLG",
-    "Bullhead City, AZ": "IFP",
-    "Page, AZ": "PGA",
-    # Nevada
-    "Reno": "RNO",
-    "Las Vegas": "LAS",
-    "Elko": "EKO",
-    # Utah
-    "St. George, UT": "SGU",
-    "Cedar City, UT": "CDC",
-    "Salt Lake City": "SLC",
-    # Idaho
-    "Twin Falls": "TWF",
-    "Pocatello": "PIH",
-    "Idaho Falls": "IDA",
-    "Sun Valley": "SUN",
-    "Boise": "BOI",
-    "Lewiston": "LWS",
-    # Montana
-    "Kalispell": "FCA",
-    "Great Falls, MT": "GTF",
-    "Missoula, MT": "MSO",
-    "Helena": "HLN",
-    "Bozeman": "BZN",
-    "Butte": "BTM",
-    # Wyoming
-    "Jackson": "JAC",
-    "Cody": "COD",
-    # Colorado
-    "Denver": "DEN",
-    "Colorado Springs": "COS",
-    "Grand Junction": "GJT",
-    "Durango": "DRO",
-    "Telluride": "TEX",
-    "Montrose": "MTJ",
-    "Gunnison": "GUC",
-    "Aspen": "ASE",
-    "Vail": "EGE",
-    "Hayden": "HDN",
-    "Pueblo": "PUB",
-    # New Mexico
-    "Santa Fe": "SAF",
-    "Albuquerque": "ABQ",
-    # Canada
-    "Victoria": "YYJ",
-    "Vancouver": "YVR",
-    "Calgary": "YYC",
-    # Alaska
-    "Anchorage": "ANC"
-}
+flight.find(class_= "OMOBOQD-d-Ab").get_text()
 
 
-driver = webdriver.PhantomJS("/opt/phantomjs/bin/phantomjs")
-driver = webdriver.Chrome("../bin/chromedriver")
-scrape_time = str(datetime.datetime.now())[:-7]
+soup_ret.get_text
 
-driver.get("https://www.google.com/flights/#search;f=SEA;t=BOS;d=2017-09-13;tt=o")
-soup = BeautifulSoup(driver.page_source, "html.parser")
+flight
+soup_ret.find_all("a", elm = "il")
 
-flight_data = []
-for flight in soup.find_all("a", class_=re.compile("OMOBOQD-d-X")):
-    dict = {
-        "href": flight.get("href"),
-        "price": flight.find(class_= "OMOBOQD-d-Ab").get_text(),
-        "oneway": flight.find(class_= "OMOBOQD-d-Cb").get_text(),
-        "airline_icon": flight.find(class_= "OMOBOQD-d-i").get("src"),
-        "departure": flight.find(class_="OMOBOQD-d-Zb").span.get("tooltip"),
-        "arrival": flight.find(class_="OMOBOQD-d-Zb").span.find_next_sibling("span").get("tooltip"),
-        "airline_text": flight.find(class_="OMOBOQD-d-j").span.get_text(),
-        "duration": flight.find(class_="OMOBOQD-d-E").get_text(),
-        "number_of_stops": flight.find(class_="OMOBOQD-d-Qb").get_text(),
-        "scrape_time": scrape_time
-    }
-    if flight.find(class_="OMOBOQD-d-Qb").get_text().lower() != "nonstop":
-        dict["layover_info"] = flight.find(class_="OMOBOQD-d-Z").get_text()
-    try:
-        dict["wifi"] = flight.find(class_= "OMOBOQD-d-jc").get("tooltip"),
-    except AttributeError:
-        pass
-    flight_data.append(dict)
+new_driver = webdriver.Chrome("../bin/chromedriver")
 
+new_driver.get("https://www.google.com/flights/#search;f=LAX;t=BOS;d=2017-07-21;tt=o;eo=e")
+soup_ret = BeautifulSoup(new_driver.page_source, "lxml")
 
+for flight in soup_ret.find_all("a", elm = "il"):
+    print(flight)
 
-dataframe = pd.DataFrame.from_dict(flight_data)
-dataframe
+soup_ret.find_all("a", elm = "il")
+
+flights
