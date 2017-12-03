@@ -34,7 +34,7 @@ class scrape_flights(object):
         elif type(self.origins) is list:
             origin_list = self.origins
         else:
-            raise Exception("Please supply a dictionary, list, or string as the origin")
+            raise Exception('Please supply a dictionary, list, or string as the origin')
 
         dest_list = []
         if type(self.dests) is dict:
@@ -45,7 +45,7 @@ class scrape_flights(object):
         elif type(self.dests) is list:
             dest_list = self.dests
         else:
-            raise Exception("Please supply a dictionary, list, or string as the destination")
+            raise Exception('Please supply a dictionary, list, or string as the destination')
 
         self.origins = [x.upper() for x in origin_list]
         self.dests   = [x.upper() for x in dest_list]
@@ -84,12 +84,8 @@ class scrape_flights(object):
         first_day_time         = dep_datetime_earliest.time()
         last_day_time          = return_datetime_latest.time()
 
-        # print("Earliest departure:", str(dep_datetime_earliest))
-        # print("Latest return:"     , str(return_datetime_latest))
-        # print(" ")
-
         if diff.total_seconds() < 0:
-            raise Exception("Return datetime cannot be before departure datetime")
+            raise Exception('Return datetime cannot be before departure datetime')
 
         if min_trip_duration is None:
             min_trip_duration = 0
@@ -98,7 +94,7 @@ class scrape_flights(object):
             max_trip_duration = diff.days
 
         if diff.days < min_trip_duration:
-            raise Exception("Minimum trip duration must be at least as long as the difference in days between earliest start and latest return")
+            raise Exception('Minimum trip duration is longer than the difference between earliest and latest possible dates.')
 
         # First get all possible combinations of departure and return days,
         #  and then find the subset that matches min and max trip duration
@@ -109,17 +105,17 @@ class scrape_flights(object):
         for i in itertools.product(dep_list, ret_list):
             cart_product.append(i)
 
-        date_pairs = pd.DataFrame(cart_product, columns=["dep_date", "ret_date"])
+        date_pairs = pd.DataFrame(cart_product, columns=['dep_date', 'ret_date'])
         date_pairs = date_pairs[date_pairs.ret_date - date_pairs.dep_date <= datetime.timedelta(days = max_trip_duration)]
         date_pairs = date_pairs[date_pairs.ret_date - date_pairs.dep_date >= datetime.timedelta(days = min_trip_duration)]
 
         # Now add on dep_time and ret_time if first or last day
-        date_pairs.loc[date_pairs.dep_date == first_day, "dep_time"] = first_day_time
-        date_pairs.loc[date_pairs.ret_date == last_day, "ret_time"]  = last_day_time
-        # date_pairs["duration"] = date_pairs.ret_date - date_pairs.dep_date
-        date_pairs["merge"] = 1
+        date_pairs.loc[date_pairs.dep_date == first_day, 'dep_time'] = first_day_time
+        date_pairs.loc[date_pairs.ret_date == last_day, 'ret_time']  = last_day_time
+        date_pairs['duration'] = date_pairs.ret_date - date_pairs.dep_date
+        date_pairs['merge'] = 1
 
-        self.data = pd.merge(self.data, date_pairs, on = "merge")
+        self.data = pd.merge(self.data, date_pairs, on = 'merge')
 
     # def holiday_dates(self,
     #                   holiday_date = None,
@@ -171,69 +167,69 @@ class scrape_flights(object):
 
     def scrape(self,
                scrape_wait_time = 5,
-               scrape_engine = "chromedriver"):
+               scrape_engine = 'chromedriver'):
 
-        if scrape_engine == "chromedriver":
-            driver = webdriver.Chrome("../bin/chromedriver")
-        elif scrape_engine == "phantomjs":
-            driver = webdriver.PhantomJS("/opt/phantomjs/bin/phantomjs")
+        if scrape_engine == 'chromedriver':
+            driver = webdriver.Chrome('../bin/chromedriver')
+        elif scrape_engine == 'phantomjs':
+            driver = webdriver.PhantomJS('/opt/phantomjs/bin/phantomjs')
         else:
-            raise Exception("You must use Chromedriver or PhantomJS")
+            raise Exception('You must use Chromedriver or PhantomJS')
 
         flights_list = []
         scrape_time = str(datetime.datetime.now())[:-7]
 
         for i in range(len(self.data)):
             time.sleep(randint(3, 7))
-            driver.get(self.data["url_dep"][i])
-            soup_dep = BeautifulSoup(driver.page_source, "lxml")
+            driver.get(self.data['url_dep'][i])
+            soup_dep = BeautifulSoup(driver.page_source, 'lxml')
             time.sleep(randint(3, 7))
-            driver.get(self.data["url_ret"][i])
-            soup_ret = BeautifulSoup(driver.page_source, "lxml")
+            driver.get(self.data['url_ret'][i])
+            soup_ret = BeautifulSoup(driver.page_source, 'lxml')
 
             # flights_list = []
-            # for flight in soup_dep.find_all("a", class_=re.compile("OMOBOQD-d-X")):
-            for flight in soup_dep.find_all("a", elm="il"):
+            # for flight in soup_dep.find_all('a', class_=re.compile('OMOBOQD-d-X')):
+            for flight in soup_dep.find_all('a', elm='il'):
                 dict = {
-                    "dep_href": flight.get("href"),
-                    "dep_price": flight.find(class_= "OMOBOQD-d-Ab").get_text(),
-                    "dep_oneway": flight.find(class_= "OMOBOQD-d-Cb").get_text(),
-                    "dep_airline_icon": flight.find(class_= "OMOBOQD-d-i").get("src"),
-                    "dep_departure": flight.find(class_="OMOBOQD-d-Zb").span.get("tooltip"),
-                    "dep_arrival": flight.find(class_="OMOBOQD-d-Zb").span.find_next_sibling("span").get("tooltip"),
-                    "dep_airline_text": flight.find(class_="OMOBOQD-d-j").span.get_text(),
-                    "dep_duration": flight.find(class_="OMOBOQD-d-E").get_text(),
-                    "dep_number_of_stops": flight.find(class_="OMOBOQD-d-Qb").get_text(),
-                    "scrape_time": scrape_time,
-                    "id": i
+                    'dep_href': flight.get('href'),
+                    'dep_price': flight.find(class_= 'OMOBOQD-d-Ab').get_text(),
+                    'dep_oneway': flight.find(class_= 'OMOBOQD-d-Cb').get_text(),
+                    'dep_airline_icon': flight.find(class_= 'OMOBOQD-d-i').get('src'),
+                    'dep_departure': flight.find(class_='OMOBOQD-d-Zb').span.get('tooltip'),
+                    'dep_arrival': flight.find(class_='OMOBOQD-d-Zb').span.find_next_sibling('span').get('tooltip'),
+                    'dep_airline_text': flight.find(class_='OMOBOQD-d-j').span.get_text(),
+                    'dep_duration': flight.find(class_='OMOBOQD-d-E').get_text(),
+                    'dep_number_of_stops': flight.find(class_='OMOBOQD-d-Qb').get_text(),
+                    'scrape_time': scrape_time,
+                    'id': i
                 }
-                if flight.find(class_="OMOBOQD-d-Qb").get_text().lower() != "nonstop":
-                    dict["dep_layover_info"] = flight.find(class_="OMOBOQD-d-Z").get_text()
+                if flight.find(class_='OMOBOQD-d-Qb').get_text().lower() != 'nonstop':
+                    dict['dep_layover_info'] = flight.find(class_='OMOBOQD-d-Z').get_text()
                 try:
-                    dict["dep_wifi"] = flight.find(class_= "OMOBOQD-d-jc").get("tooltip"),
+                    dict['dep_wifi'] = flight.find(class_= 'OMOBOQD-d-jc').get('tooltip'),
                 except AttributeError:
                     pass
                 flights_list.append(dict)
 
-            # for flight in soup_ret.find_all("a", class_=re.compile("OMOBOQD-d-X")):
-            for flight in soup_ret.find_all("a", elm="il"):
+            # for flight in soup_ret.find_all('a', class_=re.compile('OMOBOQD-d-X')):
+            for flight in soup_ret.find_all('a', elm='il'):
                 dict = {
-                    "ret_href": flight.get("href"),
-                    "ret_price": flight.find(class_= "OMOBOQD-d-Ab").get_text(),
-                    "ret_oneway": flight.find(class_= "OMOBOQD-d-Cb").get_text(),
-                    "ret_airline_icon": flight.find(class_= "OMOBOQD-d-i").get("src"),
-                    "ret_departure": flight.find(class_="OMOBOQD-d-Zb").span.get("tooltip"),
-                    "ret_arrival": flight.find(class_="OMOBOQD-d-Zb").span.find_next_sibling("span").get("tooltip"),
-                    "ret_airline_text": flight.find(class_="OMOBOQD-d-j").span.get_text(),
-                    "ret_duration": flight.find(class_="OMOBOQD-d-E").get_text(),
-                    "ret_number_of_stops": flight.find(class_="OMOBOQD-d-Qb").get_text(),
-                    "scrape_time": scrape_time,
-                    "id": i
+                    'ret_href': flight.get('href'),
+                    'ret_price': flight.find(class_= 'OMOBOQD-d-Ab').get_text(),
+                    'ret_oneway': flight.find(class_= 'OMOBOQD-d-Cb').get_text(),
+                    'ret_airline_icon': flight.find(class_= 'OMOBOQD-d-i').get('src'),
+                    'ret_departure': flight.find(class_='OMOBOQD-d-Zb').span.get('tooltip'),
+                    'ret_arrival': flight.find(class_='OMOBOQD-d-Zb').span.find_next_sibling('span').get('tooltip'),
+                    'ret_airline_text': flight.find(class_='OMOBOQD-d-j').span.get_text(),
+                    'ret_duration': flight.find(class_='OMOBOQD-d-E').get_text(),
+                    'ret_number_of_stops': flight.find(class_='OMOBOQD-d-Qb').get_text(),
+                    'scrape_time': scrape_time,
+                    'id': i
                 }
-                if flight.find(class_="OMOBOQD-d-Qb").get_text().lower() != "nonstop":
-                    dict["ret_layover_info"] = flight.find(class_="OMOBOQD-d-Z").get_text()
+                if flight.find(class_='OMOBOQD-d-Qb').get_text().lower() != 'nonstop':
+                    dict['ret_layover_info'] = flight.find(class_='OMOBOQD-d-Z').get_text()
                 try:
-                    dict["ret_wifi"] = flight.find(class_= "OMOBOQD-d-jc").get("tooltip"),
+                    dict['ret_wifi'] = flight.find(class_= 'OMOBOQD-d-jc').get('tooltip'),
                 except AttributeError:
                     pass
                 flights_list.append(dict)
