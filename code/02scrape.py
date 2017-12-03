@@ -1,29 +1,32 @@
 # Write scraper to check flight prices at given locations
 # I use airports.feather to get timezone data for all these airports
 
-import pandas as pd
-import feather
-import requests
-from bs4 import BeautifulSoup
-from selenium import webdriver
-import datetime
 import calendar
-import re
-from dateutil.parser import parse
+import datetime
+import feather
 import itertools
+import pandas as pd
+import re
+import requests
 import time
-from random import randint
+from bs4             import BeautifulSoup
+from dateutil.parser import parse
+from random          import randint
+from selenium        import webdriver
 
-
-class scrape_flights(object):
-    def __init__(self,
-                 origin      = None,
-                 destination = None,
-                 roundtrip   = True):
-        self.origins   = origin
-        self.dests     = destination
-        self.roundtrip = roundtrip
-        self.data      = None
+class scraper(object):
+    def __init__(
+        self,
+        origin      = None,
+        destination = None,
+        roundtrip   = True,
+        passengers  = 1):
+        
+        self.origins    = origin
+        self.dests      = destination
+        self.roundtrip  = roundtrip
+        self.data       = None
+        self.passengers = passengers
 
         origin_list = []
         if type(self.origins) is dict:
@@ -53,21 +56,15 @@ class scrape_flights(object):
         cart_product = []
         for i in itertools.product(self.origins, self.dests):
             cart_product.append(i)
-        self.data = pd.DataFrame(cart_product, columns = ["origin", "destination"])
-        self.data["merge"] = 1
+        self.data = pd.DataFrame(cart_product, columns = ['origin', 'destination'])
+        self.data['merge'] = 1
 
-
-    def datetimes(self,
-                  dep_datetime_earliest  = None,
-                  return_datetime_latest = None,
-                  min_trip_duration      = None,
-                  max_trip_duration      = None):
-        # Add Dates and Times to self.data!
-        # For testing:
-        # dep_datetime_earliest  = "July 20 10:00 am"
-        # return_datetime_latest = "July 25 5:00 pm"
-        # min_trip_duration      = 1
-        # max_trip_duration      = 4
+    def add_dates(
+        self,
+        dep_datetime_earliest  = None,
+        return_datetime_latest = None,
+        min_trip_duration      = 1,
+        max_trip_duration      = None):
         """
         Easiest implementation : parse a beginning and end datetime and a min or max trip duration
         dep_datetime_earliest  : String
@@ -87,11 +84,8 @@ class scrape_flights(object):
         if diff.total_seconds() < 0:
             raise Exception('Return datetime cannot be before departure datetime')
 
-        if min_trip_duration is None:
-            min_trip_duration = 0
-
-        if max_trip_duration is None or max_trip_duration > diff.days:
-            max_trip_duration = diff.days
+        if max_trip_duration is None or max_trip_duration > diff.days + 1:
+            max_trip_duration = diff.days + 1
 
         if diff.days < min_trip_duration:
             raise Exception('Minimum trip duration is longer than the difference between earliest and latest possible dates.')
@@ -117,39 +111,6 @@ class scrape_flights(object):
 
         self.data = pd.merge(self.data, date_pairs, on = 'merge')
 
-    # def holiday_dates(self,
-    #                   holiday_date = None,
-    #                   max_days_off_work = None,
-    #                   min_trip_duration = None,
-    #                   max_trip_duration = None):
-    #     # if self.holiday_date.weekday() >= 5:
-    #     #     print("You supplied a weekend as a holiday")
-    #
-    #
-    # def flight_duration(self,
-    #                     max_flight_duration = None,
-    #                     max_flight_duration_outbound = None,
-    #                     max_flight_duration_inbound = None):
-    #
-    # def other_options(self,
-    #                   max_stops = None,
-    #                   max_price = None,
-    #                   airline_included = None,
-    #                   airline_excluded = None,
-    #                   allow_separate_tickets = True,
-    #                   connect_airport_included = None,
-    #                   connect_airport_excluded = None):
-    #
-    # def specify_times(self,
-    #                   time_outbound_dep_begin = None,
-    #                   time_outbound_dep_end = None,
-    #                   time_outbound_arr_begin = None,
-    #                   time_outbound_arr_end = None,
-    #                   time_inbound_dep_begin = None,
-    #                   time_inbound_dep_end = None,
-    #                   time_inbound_arr_begin = None,
-    #                   time_inbound_arr_end = None):
-    #
     def make_url(self):
         self.data['url_dep'] = \
             'https://www.google.com/flights/beta#' \
