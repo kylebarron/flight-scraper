@@ -151,19 +151,31 @@ class scrape_flights(object):
     #                   time_inbound_arr_end = None):
     #
     def make_url(self):
+        self.data['url_dep'] = \
+            'https://www.google.com/flights/beta#' \
+            + 'flt=' \
+            + self.data['origin'] \
+            + '.' \
+            + self.data['destination'] \
+            + '.' \
+            + self.data['dep_date'].apply(lambda x: x.strftime('%Y-%m-%d')) \
+            + ';c:USD' \
+            + ';e:1;sd:1;t:f;tt:o'
+        if self.passengers != 1:
+            self.data['url_dep'] = self.data['url_dep'] + ';px:' + self.passengers
 
-        self.data["url_dep"] = "https://www.google.com/flights/#search"
-        self.data["url_dep"] = self.data["url_dep"] + ";f=" + self.data["origin"]
-        self.data["url_dep"] = self.data["url_dep"] + ";t=" + self.data["destination"]
-        self.data["url_dep"] = self.data["url_dep"] + ";d=" + self.data["dep_date"].apply(lambda x: x.strftime("%Y-%m-%d"))
-        self.data["url_dep"] = self.data["url_dep"] + ";tt=o;eo=e"
-
-
-        self.data["url_ret"] = "https://www.google.com/flights/#search"
-        self.data["url_ret"] = self.data["url_ret"] + ";f=" + self.data["destination"]
-        self.data["url_ret"] = self.data["url_ret"] + ";t=" + self.data["origin"]
-        self.data["url_ret"] = self.data["url_ret"] + ";d=" + self.data["ret_date"].apply(lambda x: x.strftime("%Y-%m-%d"))
-        self.data["url_ret"] = self.data["url_ret"] + ";tt=o;eo=e"
+        self.data['url_ret'] = \
+            'https://www.google.com/flights/beta#' \
+            + 'flt=' \
+            + self.data['destination'] \
+            + '.' \
+            + self.data['origin'] \
+            + '.' \
+            + self.data['ret_date'].apply(lambda x: x.strftime('%Y-%m-%d')) \
+            + ';c:USD' \
+            + ';e:1;sd:1;t:f;tt:o'
+        if self.passengers != 1:
+            self.data['url_ret'] = self.data['url_ret'] + ';px:' + self.passengers
 
     def scrape(self,
                scrape_wait_time = 5,
