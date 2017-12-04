@@ -1,18 +1,20 @@
 # Write scraper to check flight prices at given locations
 # I use airports.feather to get timezone data for all these airports
 
-import calendar
 import datetime
 import feather
 import itertools
 import pandas as pd
 import re
-import requests
 import time
-from bs4             import BeautifulSoup
-from dateutil.parser import parse
-from random          import randint
-from selenium        import webdriver
+from bs4                           import BeautifulSoup
+from dateutil.parser               import parse
+from random                        import randint
+from selenium                      import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support    import expected_conditions as EC
+from selenium.webdriver.common.by  import By
+from selenium.common.exceptions    import TimeoutException
 
 class scraper(object):
     def __init__(
@@ -137,115 +139,109 @@ class scraper(object):
             + ';e:1;sd:1;t:f;tt:o'
         if self.passengers != 1:
             self.data['url_ret'] = self.data['url_ret'] + ';px:' + self.passengers
+    
+    def scrape(
+        self,
+        scrape_wait_time = 5,
+        scrape_engine = 'chromedriver'):
 
-    def scrape(self,
-               scrape_wait_time = 5,
-               scrape_engine = 'chromedriver'):
-
-        if scrape_engine == 'chromedriver':
+        if scrape_engine.lower() == 'chromedriver':
             driver = webdriver.Chrome('../bin/chromedriver')
-        elif scrape_engine == 'phantomjs':
+        elif scrape_engine.lower() == 'phantomjs':
             driver = webdriver.PhantomJS('/opt/phantomjs/bin/phantomjs')
         else:
-            raise Exception('You must use Chromedriver or PhantomJS')
+            raise Exception("You must use 'Chromedriver' or 'PhantomJS'")
 
-        flights_list = []
+        flights_df = pd.DataFrame()
         scrape_time = str(datetime.datetime.now())[:-7]
 
         for i in range(len(self.data)):
-            time.sleep(randint(3, 7))
-            driver.get(self.data['url_dep'][i])
-            soup_dep = BeautifulSoup(driver.page_source, 'lxml')
-            time.sleep(randint(3, 7))
-            driver.get(self.data['url_ret'][i])
-            soup_ret = BeautifulSoup(driver.page_source, 'lxml')
+            time.sleep(randint(1, 3))
+            outbound_flights = self.scrape_page(self.data['url_dep'][i], driver)
+            outbound_df = pd.DataFrame(outbound_flights)
+            outbound_df['merge'] = 1
 
-            # flights_list = []
-            # for flight in soup_dep.find_all('a', class_=re.compile('OMOBOQD-d-X')):
-            for flight in soup_dep.find_all('a', elm='il'):
-                dict = {
-                    'dep_href': flight.get('href'),
-                    'dep_price': flight.find(class_= 'OMOBOQD-d-Ab').get_text(),
-                    'dep_oneway': flight.find(class_= 'OMOBOQD-d-Cb').get_text(),
-                    'dep_airline_icon': flight.find(class_= 'OMOBOQD-d-i').get('src'),
-                    'dep_departure': flight.find(class_='OMOBOQD-d-Zb').span.get('tooltip'),
-                    'dep_arrival': flight.find(class_='OMOBOQD-d-Zb').span.find_next_sibling('span').get('tooltip'),
-                    'dep_airline_text': flight.find(class_='OMOBOQD-d-j').span.get_text(),
-                    'dep_duration': flight.find(class_='OMOBOQD-d-E').get_text(),
-                    'dep_number_of_stops': flight.find(class_='OMOBOQD-d-Qb').get_text(),
-                    'scrape_time': scrape_time,
-                    'id': i
-                }
-                if flight.find(class_='OMOBOQD-d-Qb').get_text().lower() != 'nonstop':
-                    dict['dep_layover_info'] = flight.find(class_='OMOBOQD-d-Z').get_text()
-                try:
-                    dict['dep_wifi'] = flight.find(class_= 'OMOBOQD-d-jc').get('tooltip'),
-                except AttributeError:
-                    pass
-                flights_list.append(dict)
-
-            # for flight in soup_ret.find_all('a', class_=re.compile('OMOBOQD-d-X')):
-            for flight in soup_ret.find_all('a', elm='il'):
-                dict = {
-                    'ret_href': flight.get('href'),
-                    'ret_price': flight.find(class_= 'OMOBOQD-d-Ab').get_text(),
-                    'ret_oneway': flight.find(class_= 'OMOBOQD-d-Cb').get_text(),
-                    'ret_airline_icon': flight.find(class_= 'OMOBOQD-d-i').get('src'),
-                    'ret_departure': flight.find(class_='OMOBOQD-d-Zb').span.get('tooltip'),
-                    'ret_arrival': flight.find(class_='OMOBOQD-d-Zb').span.find_next_sibling('span').get('tooltip'),
-                    'ret_airline_text': flight.find(class_='OMOBOQD-d-j').span.get_text(),
-                    'ret_duration': flight.find(class_='OMOBOQD-d-E').get_text(),
-                    'ret_number_of_stops': flight.find(class_='OMOBOQD-d-Qb').get_text(),
-                    'scrape_time': scrape_time,
-                    'id': i
-                }
-                if flight.find(class_='OMOBOQD-d-Qb').get_text().lower() != 'nonstop':
-                    dict['ret_layover_info'] = flight.find(class_='OMOBOQD-d-Z').get_text()
-                try:
-                    dict['ret_wifi'] = flight.find(class_= 'OMOBOQD-d-jc').get('tooltip'),
-                except AttributeError:
-                    pass
-                flights_list.append(dict)
-
-            #
-            # temp_df = pd.DataFrame(flights_list)
-            # flights_df.append(temp_df)
-
-        flights_df = pd.DataFrame(flights_list)
+            time.sleep(randint(1, 3))
+            return_flights = self.scrape_page(self.data['url_ret'][i], driver)
+            return_df = pd.DataFrame(return_flights)
+            return_df['merge'] = 1
+            
+            both_ways_df = pd.merge(outbound_df, return_df, on = 'merge', suffixes = ('_out', '_ret'))
+            both_ways_df = both_ways_df.drop(['merge'], axis = 1)
+            flights_df = flights_df.append(both_ways_df)
+            
         return flights_df
 
+    def scrape_page(self, url, driver):
+        driver.get(url)
+        timeout = 10
+        try:
+            element_present = EC.text_to_be_present_in_element(
+                (By.CSS_SELECTOR, '.gws-flights-results__unpriced-airlines'),
+                'Prices are not available for: Southwest. Flights with unavailable prices are at the end of the list.')
+            WebDriverWait(driver, timeout).until(element_present)
+            time.sleep(1)
+        except TimeoutException:
+            print("Timed out waiting for page to load")
 
+        soup = BeautifulSoup(driver.page_source, 'lxml')
+        
+        flights_list = []
+        all_results = soup.find_all(class_ = 'gws-flights-widgets-expandablecard__body')
+        for n in range(len(all_results)):
+            dict = {}
+            stops = list(driver.find_elements_by_css_selector('.gws-flights-results__stops'))[n].text.strip()
+            try:
+                n_stops = int(stops[0])
+            except ValueError:
+                n_stops = 0
+            dict['stops'] = n_stops
+            
+            collapsed_itinerary = list(soup.find_all(class_ = 'gws-flights-results__collapsed-itinerary'))[n]
+            full_duration = collapsed_itinerary.find(class_ = 'gws-flights-results__duration').get_text()
+            hours = int(re.search(r'(\d+)h\s+(\d+)m', full_duration)[1])
+            minutes = int(re.search(r'(\d+)h\s+(\d+)m', full_duration)[2])
+            dict['full_duration'] = hours + (minutes / 60)
+            
+            flight_date = list(list(soup.find_all(class_ = 'gws-flights-results__itinerary-details-heading-text'))[n].stripped_strings)[1]
+            dict['flight_date'] = parse(flight_date).date()
+            
+            price = list(collapsed_itinerary.find(class_ = 'gws-flights-results__itinerary-price').stripped_strings)[0]
+            try:
+                dict['price'] = int(price[1:])
+            except:
+                pass
+        
+            dict['segments'] = []
+            segments = list(all_results)[n].find_all(class_ = 'gws-flights-results__leg')
+            for segment in segments:
+                dict['segments'].append(self.get_segment_data(segment))
+            
+            # amenities = list(driver.find_elements_by_css_selector('.gws-flights-results__amenities'))[n].text.split('\n')
+            flights_list.append(dict)
+        
+        return flights_list
+    
+    def get_segment_data(self, segment):
+        """
+        Input: a '.gws-flights-results__leg' object from BeautifulSoup
+        """
+        data = {}
+        departure_data   = list(segment.find(class_ = 'gws-flights-results__leg-departure').stripped_strings)
+        data['dep_time']         = departure_data[0]
+        data['dep_airport_long'] = departure_data[1]
+        data['dep_airport_code'] = departure_data[2]
 
+        arrival_data     = list(segment.find(class_ = 'gws-flights-results__leg-arrival').stripped_strings)
+        data['arr_time']         = arrival_data[0]
+        data['arr_airport_long'] = arrival_data[1]
+        data['arr_airport_code'] = arrival_data[2]
 
-test = scrape_flights(origin = "bos", destination = ["LAX", "SEA"])
-test.datetimes("July 20 10:00 am", "July 22 5:00 pm")
-test.make_url()
-flights = test.scrape()
-
-test.data
-
-
-airports = feather.read_dataframe("../data/airports.feather")
-flights
-
-test.data["url_ret"][0]
-
-flight.find(class_= "OMOBOQD-d-Ab").get_text()
-
-
-soup_ret.get_text
-
-flight
-soup_ret.find_all("a", elm = "il")
-
-new_driver = webdriver.Chrome("../bin/chromedriver")
-
-new_driver.get("https://www.google.com/flights/#search;f=LAX;t=BOS;d=2017-07-21;tt=o;eo=e")
-soup_ret = BeautifulSoup(new_driver.page_source, "lxml")
-
-for flight in soup_ret.find_all("a", elm = "il"):
-    print(flight)
-
-soup_ret.find_all("a", elm = "il")
-
-flights
+        flight_data   = list(segment.find(class_ = 'gws-flights-results__leg-flight').stripped_strings)
+        data['airline']       = flight_data[0]
+        data['seat_class']    = flight_data[1]
+        data['airplane']      = flight_data[2]
+        data['airline_code']  = flight_data[3]
+        data['flight_number'] = flight_data[4]
+        
+        return data

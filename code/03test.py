@@ -1,3 +1,14 @@
+test = scraper(origin = 'bos', destination = ['LAX'])
+test.data
+test.add_dates('December 20', 'December 21')
+test.data
+test.make_url()
+# test.data
+test.data['url_dep'][0]
+data = test.scrape()
+## This works as of 12/3/2017, 7:59:51 PM
+
+
 origins = {
     "Boston": "BOS",
     "Providence": "PVD"
