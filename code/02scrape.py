@@ -126,7 +126,7 @@ class scraper(object):
 
     def make_url(self):
         self.data['url_dep'] = \
-            'https://www.google.com/flights/beta#' \
+            'https://www.google.com/flights#' \
             + 'flt=' \
             + self.data['origin'] \
             + '.' \
@@ -140,7 +140,7 @@ class scraper(object):
                 'url_dep'] = self.data['url_dep'] + ';px:' + self.passengers
 
         self.data['url_ret'] = \
-            'https://www.google.com/flights/beta#' \
+            'https://www.google.com/flights#' \
             + 'flt=' \
             + self.data['destination'] \
             + '.' \
